@@ -216,14 +216,14 @@ async def create_table(files: List[UploadFile] = File(...)):
                 await out_file.write(content)
     print(f"path: {path}")
     photo_list = read_image_name(path)
-    tags = image_to_exif(photo_list)
+    #tags = image_to_exif(photo_list)
+    tags = image_to_exif(valid_image_list)
     df2 = pd.DataFrame(tags)
     stream = io.StringIO()
     html_table_image = df2.to_html(stream, index=False)
     ######to empty the lists###########
-    df2.iloc[0:0]
-    tags.clear()
-    photo_list.clear()
+    df2.iloc[0:0],tags.clear(), photo_list.clear(), valid_image_list.clear()
+    
     response = StreamingResponse(iter([stream.getvalue()]), media_type="text/html", status_code=200)
     response.headers["Content-Disposition"] = f"{folder_UUID}.html"
 
@@ -281,130 +281,132 @@ async def create_map(files: List[UploadFile] = File(...)):
         Name.append(os.path.basename(file.filename))
     # print(f"path: {path}")
     photo_list = read_image_name(path)
-    tags = image_to_exif(photo_list)
+    #tags = image_to_exif(photo_list)
+    tags = image_to_exif(valid_image_list)
     # print(photo_list)
-    df5 = pd.DataFrame(tags)
-
-
-    for x in range(len(df5.index)):
-        # Name.append()
-        if 'gps_latitude' in df5.columns:
-            Lat.append(dms_to_dd(df5.gps_latitude[x], df5.gps_latitude_ref[x]))
-            Lon.append(dms_to_dd(df5.gps_longitude[x], df5.gps_longitude_ref[x]))
-            # if pd.isnull(df5['gps_latitude'].iloc[x]):
-            #     print(f"empty exif, no coordinate ")
-            #     Lat.append(0)
-            #     Lon.append(0)
-            pass
-        else:
-            print(f"empty exif, no coordinate ")
-            Lat.append(0)
-            Lon.append(0)
     try:
-        df5["Latitude"] = Lat
-        df5["Longitude"] = Lon
-        df5["Name"] = Name
-        # first_column = df5.pop('Name')
-        # df5.insert(0, 'Name', first_column)
-    except:
-        print("No name")
-        df5["Name"] = "Name"
-        pass
-    print(df5.Latitude, df5.Longitude)
-    # print(f"Name: {Name}")
-    gdf = geopandas.GeoDataFrame(
-        df5, geometry=geopandas.points_from_xy(df5.Longitude, df5.Latitude), crs="EPSG:4326")
-    print(gdf.head())
-    # world = geopandas.read_file(geopandas.datasets.get_path('naturalearth_lowres'))
-    world = geopandas.read_file("https://naciscdn.org/naturalearth/110m/cultural/ne_110m_admin_0_countries.zip")
-    ax = world.plot(
-        color='white', edgecolor='black')
-    #########create map######
-    m = folium.Map(
-        location=[df5.Latitude[0], df5.Longitude[0]],
-        zoom_start=7,
-        tiles='openstreetmap',
-        zoom_control=True,
-        scrollWheelZoom=True,
-        dragging=True
-    )
-    folium.TileLayer('openstreetmap').add_to(m)
-    folium.TileLayer('Stamen Terrain').add_to(m)
-    folium.TileLayer('Stamen Toner').add_to(m)
-    folium.TileLayer('Stamen Water Color').add_to(m)
-    folium.TileLayer('cartodbpositron').add_to(m)
-    folium.TileLayer('cartodbdark_matter').add_to(m)
-    loc_1 = []
-    for idx, point in df5.iterrows():
+        df5 = pd.DataFrame(tags)
+        for x in range(len(df5.index)):
+            # Name.append(GPSExifData.Image_name)
+            if pd.isnull(df5['gps_latitude'].iloc[x]):
+                print(f"empty exif, no coordinate ")
+                Lat.append(0)
+                Lon.append(0)
+            else:
+                Lat.append(dms_to_dd(df5.gps_latitude[x], df5.gps_latitude_ref[x]))
+                Lon.append(dms_to_dd(df5.gps_longitude[x], df5.gps_longitude_ref[x]))
+        try:
+            df5["Latitude"] = Lat
+            df5["Longitude"] = Lon
+            df5["Name"] = Name
+            # first_column = df5.pop('Name')
+            # df5.insert(0, 'Name', first_column)
+        except:
+            print("No name")
+            df5["Name"] = "Name"
+            pass
+        print(df5.Latitude, df5.Longitude)
+        # print(f"Name: {Name}")
+        gdf = geopandas.GeoDataFrame(
+            df5, geometry=geopandas.points_from_xy(df5.Longitude, df5.Latitude), crs="EPSG:4326")
+        print(gdf.head())
+        # world = geopandas.read_file(geopandas.datasets.get_path('naturalearth_lowres'))
+        world = geopandas.read_file("https://naciscdn.org/naturalearth/110m/cultural/ne_110m_admin_0_countries.zip")
+        ax = world.plot(
+            color='white', edgecolor='black')
+        #########create map######
+        m = folium.Map(
+            location=[df5.Latitude[0], df5.Longitude[0]],
+            zoom_start=7,
+            tiles='openstreetmap',
+            zoom_control=True,
+            scrollWheelZoom=True,
+            dragging=True
+        )
+        folium.TileLayer('openstreetmap').add_to(m)
+        folium.TileLayer('Stamen Terrain').add_to(m)
+        folium.TileLayer('Stamen Toner').add_to(m)
+        folium.TileLayer('Stamen Water Color').add_to(m)
+        folium.TileLayer('cartodbpositron').add_to(m)
+        folium.TileLayer('cartodbdark_matter').add_to(m)
+
+        loc_1 = []
+        for idx, point in df5.iterrows():
             loc_1.append((point['Latitude'], point['Longitude']))
-    # print(f"loc_1: {loc_1}")
-    m.add_child(folium.LatLngPopup())
+            # print(f"point {point}")
+            # print("point")
+        print(f"loc_1: {loc_1}")
 
-    f1 = folium.FeatureGroup("Line")
-    polyline = folium.vector_layers.PolyLine(locations=loc_1, color='lightblue', no_clip=True)
-    polyline.add_to(f1)
-    #####---- ####
-    polyline_length = 0.0
-    for i in range(len(loc_1) - 1):
-        coord1 = loc_1[i]
-        coord2 = loc_1[i + 1]
-        lat1, lon1 = coord1
-        lat2, lon2 = coord2
-        # Convert latitude and longitude to radians
-        lat1_rad = math.radians(lat1)
-        lon1_rad = math.radians(lon1)
-        lat2_rad = math.radians(lat2)
-        lon2_rad = math.radians(lon2)
-        # Haversine formula
-        dlon = lon2_rad - lon1_rad
-        dlat = lat2_rad - lat1_rad
-        a = math.sin(dlat / 2) ** 2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2) ** 2
-        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-        distance = 6371 * c  # Earth's radius in kilometers
-        polyline_length += distance
 
-    # Convert the length to kilometers
-    polyline_length_km = polyline_length
+        f1 = folium.FeatureGroup("Line")
+        #color = 'lightblue'
+        polyline = folium.vector_layers.PolyLine(locations=loc_1, color='blue', no_clip=True)
+        #polyline.add_to(f1)
 
-    # Create the label text
-    label_text = "Length: {:.2f} km".format(polyline_length_km)
 
-    f1.add_child(polyline)
-    for i in range(len(loc_1) - 1):
-        coord1 = loc_1[i]
-        coord2 = loc_1[i + 1]
-        midpoint = [(coord1[0] + coord2[0]) / 2, (coord1[1] + coord2[1]) / 2]
-        label_lat, label_lon = midpoint
-        icon_style = 'color: black; font-weight: bold; text-shadow: -1px -1px 1px #fff, 1px -1px 1px #fff, -1px 1px 1px #fff, 1px 1px 1px #fff;'
-        popup_style = 'font-size: 20px;'
-        folium.Marker(
-            location=[label_lat, label_lon],
-            icon=folium.DivIcon(html=f'<div style="{icon_style}">{label_text}</div>'),
-            popup=folium.Popup(label_text, max_width=200, show=False, sticky=True, style=popup_style)
-        ).add_to(f1)
-    ##### --- ####
+        # Calculate the polyline length
+        polyline_length_km = 0.0
+        for i in range(len(loc_1) - 1):
+            lat1, lon1 = loc_1[i]
+            lat2, lon2 = loc_1[i + 1]
+            # Convert latitude and longitude to radians
+            lat1_rad, lon1_rad, lat2_rad, lon2_rad = map(math.radians, [lat1, lon1, lat2, lon2])
+            # Haversine formula
+            dlon = lon2_rad - lon1_rad
+            dlat = lat2_rad - lat1_rad
+            a = math.sin(dlat / 2) ** 2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2) ** 2
+            c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+            distance = 6371 * c  # Earth's radius in kilometers
+            polyline_length_km += distance
+            # print(f"distance {distance}")
+        # Create the label text
+        polyline_length_miles = polyline_length_km * 0.621371
+        label_text = "Length: {:.2f}km ({:.2f}mi)".format(polyline_length_km, polyline_length_miles)
 
-    f1.add_to(m)
-    f2 = folium.FeatureGroup("PhotoLocation")
-    # print(f"dflat: {df5.columns}")
-    #########create marker######
-    for _, r in gdf.iterrows():
-        lat = r['geometry'].y
-        lon = r['geometry'].x
-        folium.vector_layers.Marker(location=[lat, lon], popup='Name: {} <br> Time: {} <br> Latitude: {:.4f} <br> Longitude: {:.4f}'.format(r['Name'], r['datetime'], lat, lon ),
-                      icon=folium.Icon(icon="cloud"), ).add_to(f2)
-    f2.add_to(m)
-    folium.LayerControl().add_to(m)
-    ######to empty the lists###########
-    df5.iloc[0:0]
-    tags.clear(), photo_list.clear(), Lat.clear(), Lon.clear(), Name.clear()
-    ######create html map#######
-    html_map = m._repr_html_()
-    # html_map = m.get_root().render()
+        #m.add_child(folium.LatLngPopup())
+        f1.add_child(polyline)
+        for i in range(len(loc_1) - 1):
+            coord1 = loc_1[i]
+            coord2 = loc_1[i + 1]
+            midpoint = [(coord1[0] + coord2[0]) / 2, (coord1[1] + coord2[1]) / 2]
+            label_lat, label_lon = midpoint
+            icon_style = 'color: black; font-weight: bold; text-shadow: -1px -1px 1px #fff, 1px -1px 1px #fff, -1px 1px 1px #fff, 1px 1px 1px #fff;'
+            popup_style = 'font-size: 20px;'
+            folium.Marker(
+                location=[label_lat, label_lon],
+                icon=folium.DivIcon(html=f'<div style="{icon_style}">{label_text}</div>'),
+                popup=folium.Popup(label_text, max_width=200, show=False, sticky=True, style=popup_style)).add_to(f1)
+        ##### --- ####
 
-    response = StreamingResponse(iter([html_map]), media_type="text/html", status_code=200)
-    response.headers["Content-Disposition"] = f"{folder_UUID}.html"
+        f1.add_to(m)
+        #m.add_child(f1)
+        f2 = folium.FeatureGroup("PhotoLocation")
+        m.add_child(folium.LatLngPopup())
 
+        # print(f"dflat: {df5.columns}")
+        #########create marker######
+        for _, r in gdf.iterrows():
+            lat = r['geometry'].y
+            lon = r['geometry'].x
+            folium.vector_layers.Marker(location=[lat, lon], popup='Name: {} <br> Time: {} <br> Latitude: {:.4f} <br> Longitude: {:.4f}'.format(r['Name'], r['datetime'], lat, lon ),
+                          icon=folium.Icon(icon="cloud"), ).add_to(f2)
+        f2.add_to(m)
+        folium.LayerControl().add_to(m)
+        ######create html map#######
+        html_map = m._repr_html_()
+        #html_map = m.get_root().render()
+        ######to empty the lists###########
+        df5.iloc[0:0]
+        tags.clear(), photo_list.clear(), Lat.clear(), Lon.clear(), Name.clear(), valid_image_list.clear()
+
+
+        response = StreamingResponse(iter([html_map]), media_type="text/html", status_code=200)
+        response.headers["Content-Disposition"] = f"{folder_UUID}.html"
+    except:
+
+            response = f"This image {Name} is not valid, place insert image with exif file and location"
+            df5.iloc[0:0], tags.clear(), photo_list.clear(), Lat.clear(), Lon.clear(), Name.clear(), valid_image_list.clear()
+            return response
     return response
 
 
@@ -1191,5 +1193,5 @@ def raise_exception():
 
 #mark before deployment
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="127.0.0.1", port=5000, reload=True, log_level="info", workers=2)
-print('Ready')
+    #uvicorn.run("main:app", host="127.0.0.1", port=5000, reload=True, log_level="info", workers=2)
+    print('Ready')
